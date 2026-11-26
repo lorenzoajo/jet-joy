@@ -1,0 +1,62 @@
+:root {
+  --sky: #4fb3ff;
+  --sky-deep: #2a6fe0;
+  --ink: #1d2a44;
+  --paper: #ffffff;
+  --sun: #ffd23f;
+  --tomato: #ff4d6d;
+  --mint: #36e0c8;
+  --lime: #7dff4f;
+  --grape: #b07cff;
+  --orange: #ff8a3d;
+  --font: ui-rounded, 'SF Pro Rounded', 'Nunito', 'Varela Round', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body, #app {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--sky);
+  color: var(--ink);
+  font-family: var(--font);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+button {
+  font-family: inherit;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+.btn {
+  padding: 14px 28px;
+  border-radius: 999px;
+  font-size: 20px;
+  background: var(--sun);
+  color: var(--ink);
+  box-shadow: 0 6px 0 #c99a00, 0 10px 20px rgba(0, 0, 0, 0.2);
+  transition: transform 0.08s ease;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #c99a00; }
+.btn.secondary { background: var(--paper); box-shadow: 0 6px 0 #b9c7dd, 0 10px 20px rgba(0, 0, 0, 0.15); }
+.btn.secondary:active { box-shadow: 0 2px 0 #b9c7dd; }
+
+.panel {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 28px;
+  box-shadow: 0 10px 0 rgba(29, 42, 68, 0.15), 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+.safe {
+  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
