@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { audio } from './game/audio'
 import { Input } from './game/input'
 import { MISSIONS, type MissionDef } from './game/missions'
+import { setupPwa } from './pwa'
 import { loadProgress, type Progress } from './store/progress'
 import { loadSettings, saveSettings, type Settings } from './store/settings'
 import MissionSelect from './ui/MissionSelect.vue'
@@ -17,6 +18,10 @@ const progress = ref<Progress>(loadProgress())
 const missionIndex = ref(0)
 const runKey = ref(0)
 const mission = computed<MissionDef>(() => MISSIONS[missionIndex.value] ?? MISSIONS[0]!)
+
+// New versions are applied only outside a mission so a flight is never interrupted.
+const pwa = setupPwa(() => screen.value !== 'play')
+watch(screen, (s) => s !== 'play' && pwa.notifySafe())
 
 audio.enabled = settings.value.sound
 
