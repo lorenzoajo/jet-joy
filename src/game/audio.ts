@@ -2,6 +2,8 @@ import { logError } from '../log'
 
 export type Sfx = 'star' | 'ring' | 'fuel' | 'boost' | 'shoot' | 'pop' | 'hit' | 'bump' | 'win' | 'lose' | 'warn'
 
+const LOOP_FADE = 0.05
+
 type Note = [freq: number, at: number, dur: number]
 
 const MELODIES: Partial<Record<Sfx, { type: OscillatorType; notes: Note[]; vol: number }>> = {
@@ -15,12 +17,24 @@ const MELODIES: Partial<Record<Sfx, { type: OscillatorType; notes: Note[]; vol: 
 }
 
 /** Tiny synth: no audio files, everything generated with WebAudio. */
+interface JetEngine {
+  sources: AudioScheduledSourceNode[]
+  bus: GainNode
+  roarFilter: BiquadFilterNode
+  roarGain: GainNode
+  hissFilter: BiquadFilterNode
+  hissGain: GainNode
+  whines: OscillatorNode[]
+  whineGain: GainNode
+  burnerGain: GainNode
+}
+
 export class SoundBoard {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
-  private engine: OscillatorNode | null = null
-  private engineGain: GainNode | null = null
+  private engine: JetEngine | null = null
   private noise: AudioBuffer | null = null
+  private brown: AudioBuffer | null = null
   enabled = true
 
   /** Must be called from a user gesture (iOS). */
@@ -34,6 +48,7 @@ export class SoundBoard {
         this.master.gain.value = this.enabled ? 0.8 : 0
         this.master.connect(this.ctx.destination)
         this.noise = this.makeNoise(this.ctx)
+        this.brown = this.makeBrownNoise(this.ctx)
       }
       void this.ctx.resume()
     } catch (e) {
@@ -55,38 +70,97 @@ export class SoundBoard {
   }
 
   startEngine(): void {
-    if (!this.ctx || !this.master || this.engine) return
-    const osc = this.ctx.createOscillator()
-    osc.type = 'sawtooth'
-    osc.frequency.value = 70
-    const filter = this.ctx.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = 380
-    const gain = this.ctx.createGain()
-    gain.gain.value = 0.05
-    osc.connect(filter).connect(gain).connect(this.master)
-    osc.start()
-    this.engine = osc
-    this.engineGain = gain
+    const ctx = this.ctx
+    const out = this.master
+    if (!ctx || !out || this.engine || !this.noise || !this.brown) return
+    const t = ctx.currentTime
+    const sources: AudioScheduledSourceNode[] = []
+    const loop = (buf: AudioBuffer): AudioBufferSourceNode => {
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.loop = true
+      // Matches the 50 ms crossfade baked into the buffers: the faded tail flows into this point.
+      src.loopStart = LOOP_FADE
+      src.loopEnd = buf.duration
+      // Random offsets so layers sharing a buffer don't phase-lock.
+      src.start(t, Math.random() * buf.duration)
+      sources.push(src)
+      return src
+    }
+    const filter = (type: BiquadFilterType, freq: number, q = 0.7): BiquadFilterNode => {
+      const f = ctx.createBiquadFilter()
+      f.type = type
+      f.frequency.value = freq
+      f.Q.value = q
+      return f
+    }
+    const gain = (v: number): GainNode => {
+      const g = ctx.createGain()
+      g.gain.value = v
+      return g
+    }
+
+    const bus = gain(0)
+    bus.connect(out)
+    // Spool-up instead of a hard start.
+    bus.gain.setTargetAtTime(1, t, 0.35)
+
+    const roarFilter = filter('lowpass', 700)
+    const roarGain = gain(0.22)
+    loop(this.brown).connect(roarFilter).connect(roarGain).connect(bus)
+
+    const hissFilter = filter('bandpass', 4000, 0.8)
+    const hissGain = gain(0.025)
+    loop(this.noise).connect(filter('highpass', 1800)).connect(hissFilter).connect(hissGain).connect(bus)
+
+    const whineGain = gain(0.008)
+    const whines = [2100, 2113].map((f) => {
+      const o = ctx.createOscillator()
+      o.type = 'sine'
+      o.frequency.value = f
+      o.connect(whineGain)
+      o.start(t)
+      sources.push(o)
+      return o
+    })
+    whineGain.connect(bus)
+
+    const burnerGain = gain(0)
+    loop(this.brown).connect(filter('lowpass', 140)).connect(burnerGain).connect(bus)
+
+    this.engine = { sources, bus, roarFilter, roarGain, hissFilter, hissGain, whines, whineGain, burnerGain }
   }
 
   stopEngine(): void {
-    try {
-      this.engine?.stop()
-    } catch (e) {
-      logError('audio.stopEngine', e)
-    }
-    this.engine?.disconnect()
+    const e = this.engine
+    if (!e || !this.ctx) return
     this.engine = null
-    this.engineGain = null
+    const t = this.ctx.currentTime
+    e.bus.gain.setTargetAtTime(0, t, 0.15)
+    for (const s of e.sources) {
+      try {
+        s.stop(t + 0.8)
+      } catch (err) {
+        logError('audio.stopEngine', err)
+      }
+    }
+    setTimeout(() => e.bus.disconnect(), 1000)
   }
 
   /** speed01: 0 = cruise, 1 = full boost. */
   setEngine(speed01: number): void {
-    if (!this.ctx || !this.engine || !this.engineGain) return
+    const e = this.engine
+    if (!this.ctx || !e) return
     const t = this.ctx.currentTime
-    this.engine.frequency.setTargetAtTime(65 + speed01 * 55, t, 0.1)
-    this.engineGain.gain.setTargetAtTime(0.045 + speed01 * 0.04, t, 0.1)
+    const s = Math.max(0, Math.min(1, speed01))
+    e.roarFilter.frequency.setTargetAtTime(700 + s * 900, t, 0.15)
+    e.roarGain.gain.setTargetAtTime(0.22 + s * 0.15, t, 0.15)
+    e.hissFilter.frequency.setTargetAtTime(4000 + s * 2000, t, 0.15)
+    e.hissGain.gain.setTargetAtTime(0.025 + s * 0.03, t, 0.15)
+    e.whines.forEach((o, i) => o.frequency.setTargetAtTime(2100 + i * 13 + s * 700, t, 0.4))
+    e.whineGain.gain.setTargetAtTime(0.008 + s * 0.006, t, 0.2)
+    // Afterburner only really kicks in on boost.
+    e.burnerGain.gain.setTargetAtTime(Math.max(0, s - 0.2) * 0.45, t, 0.12)
   }
 
   play(sfx: Sfx): void {
@@ -135,9 +209,28 @@ export class SoundBoard {
   }
 
   private makeNoise(ctx: AudioContext): AudioBuffer {
-    const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate)
     const d = buf.getChannelData(0)
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+    return buf
+  }
+
+  /** Brown (random-walk) noise: the deep, smooth roar of a jet exhaust. */
+  private makeBrownNoise(ctx: AudioContext): AudioBuffer {
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 3, ctx.sampleRate)
+    const d = buf.getChannelData(0)
+    let last = 0
+    for (let i = 0; i < d.length; i++) {
+      last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02
+      d[i] = last * 3.5
+    }
+    // Crossfade the tail into the head so the loop point doesn't click.
+    const fade = Math.floor(ctx.sampleRate * LOOP_FADE)
+    for (let i = 0; i < fade; i++) {
+      const k = i / fade
+      const tail = d.length - fade + i
+      d[tail] = (d[tail] ?? 0) * (1 - k) + (d[i] ?? 0) * k
+    }
     return buf
   }
 }
