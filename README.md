@@ -32,3 +32,7 @@ Open the deployed URL in Safari → Share → **Add to Home Screen**. It runs fu
 - `src/game/` — framework-free engine: `Game.ts` (loop/entities), `flight.ts` (arcade flight model), `layout.ts` (seeded world gen), `missions.ts` (mission data, win/lose, star rating), `input.ts`, `audio.ts` (WebAudio synth, no audio files), `models/` (procedural low-poly meshes).
 - `src/ui/` — Vue screens and HUD (fed by a 10 Hz snapshot, never per frame).
 - `src/store/` — localStorage progress and settings.
+
+## Deploy (GitHub Pages)
+`.github/workflows/deploy.yml` runs tests and `nix build` on every push to `main`/`master`, then publishes `result/` to Pages.
+One-time setup: repo **Settings → Pages → Source: GitHub Actions**. The site lands at `https://<user>.github.io/<repo>/` (HTTPS, so PWA install + offline work).
