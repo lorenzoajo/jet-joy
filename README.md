@@ -10,7 +10,7 @@ Fly a chunky toy F-16 over floating islands: grab ★ stars, chain rings for boo
 
 ## Develop
 ```sh
-devenv shell        # node 22 + npm install
+direnv allow        # auto-loads the devenv shell on cd (or: devenv shell)
 dev                 # vite dev server on the LAN (open it from your phone)
 test-web            # vitest
 build-web           # typecheck + production build into dist/
