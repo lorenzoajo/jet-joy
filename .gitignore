@@ -1,0 +1,8 @@
+node_modules
+dist
+result
+.devenv
+.devenv.flake.nix
+.direnv
+devenv.local.nix
+*.log
