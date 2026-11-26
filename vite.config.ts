@@ -8,7 +8,6 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Jet Joy',
         short_name: 'Jet Joy',
