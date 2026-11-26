@@ -11,7 +11,8 @@ Fly a chunky toy F-16 over floating islands: grab ★ stars, chain rings for boo
 ## Develop
 ```sh
 direnv allow        # auto-loads the devenv shell on cd (or: devenv shell)
-dev                 # vite dev server on the LAN (open it from your phone)
+devenv up           # run the game locally (vite on http://localhost:5173, also on your LAN for phones)
+dev                 # same, without the process manager
 test-web            # vitest
 build-web           # typecheck + production build into dist/
 ```
